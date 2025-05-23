@@ -15,11 +15,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 from database.supabase_client import SupabaseClient
-from processors.rotation import process_rotation
-from processors.brightness import process_brightness_enhancement
-from processors.shadows import process_shadow_enhancement
-from processors.glare import process_glare_reduction
-from processors.sharpening import process_text_sharpening
+from processors.enhanced_clahe import process_smart_enhancement
 from utils.logging import setup_logging, log_processing_start, log_processing_complete, log_processing_failed
 
 # Load environment variables
@@ -62,44 +58,19 @@ def process_image(media_id: str, storage_path: str) -> Dict[str, Any]:
         
         # Initialize metadata
         all_metadata = {
-            "processor_version": "1.0.0",
+            "processor_version": "2.0.0",
             "original_size": f"{image.shape[1]}x{image.shape[0]}",
-            "processing_stages": []
+            "processing_approach": "research_proven_clahe"
         }
         
-        # 1. Rotation correction
-        current_stage = "rotation_correction"
-        image, rotation_metadata = process_rotation(image)
-        all_metadata["processing_stages"].append("rotation")
-        all_metadata.update(rotation_metadata)
-        
-        # 2. Brightness enhancement
-        current_stage = "brightness_enhancement"
-        image, brightness_metadata = process_brightness_enhancement(image)
-        all_metadata["processing_stages"].append("brightness")
-        all_metadata.update(brightness_metadata)
-        
-        # 3. Shadow enhancement
-        current_stage = "shadow_enhancement"
-        image, shadow_metadata = process_shadow_enhancement(image)
-        all_metadata["processing_stages"].append("shadows")
-        all_metadata.update(shadow_metadata)
-        
-        # 4. Glare reduction
-        current_stage = "glare_reduction"
-        image, glare_metadata = process_glare_reduction(image)
-        all_metadata["processing_stages"].append("glare")
-        all_metadata.update(glare_metadata)
-        
-        # 5. Text sharpening
-        current_stage = "text_sharpening"
-        image, sharpening_metadata = process_text_sharpening(image)
-        all_metadata["processing_stages"].append("sharpening")
-        all_metadata.update(sharpening_metadata)
+        # Apply smart CLAHE enhancement (replaces all 5 previous steps)
+        current_stage = "smart_enhancement"
+        enhanced_image, enhancement_metadata = process_smart_enhancement(image)
+        all_metadata.update(enhancement_metadata)
         
         # Upload processed image
         current_stage = "uploading"
-        processed_path = db_client.upload_processed_image(image, media_id)
+        processed_path = db_client.upload_processed_image(enhanced_image, media_id)
         
         # Calculate processing time
         processing_time = time.time() - start_time

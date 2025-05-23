@@ -48,18 +48,30 @@ class SupabaseClient:
                 "created_at"
             ).limit(limit * 2).execute()  # Get more to account for filtering
             
-            # Filter out images that already have enhancement pipeline records
+            # Filter out images that already have completed pipeline records
+            # BUT INCLUDE images with pending/failed pipeline records that should be retried
             unprocessed_images = []
             for record in response.data:
                 # Check if this image already has an enhancement pipeline record
                 pipeline_check = self.client.table("media_processing_pipeline").select(
-                    "pipeline_id"
+                    "pipeline_id", "process_status"
                 ).eq("source_media_id", record["media_id"]).eq(
                     "process_type", "enhancement"
                 ).execute()
                 
-                # Only include if no pipeline record exists
+                # Include if:
+                # 1. No pipeline record exists (new image)
+                # 2. Pipeline exists but status is 'pending' or 'failed' (retry needed)
+                should_process = False
                 if not pipeline_check.data:
+                    should_process = True  # New image, no pipeline record
+                else:
+                    pipeline_status = pipeline_check.data[0]["process_status"]
+                    if pipeline_status in ["pending", "failed"]:
+                        should_process = True  # Retry pending or failed
+                    # Skip if status is "completed" or "processing"
+                
+                if should_process:
                     unprocessed_images.append(record)
                     
                     # Stop when we have enough
